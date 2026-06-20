@@ -1,0 +1,194 @@
+.plan {
+  position: absolute;
+  left: 0.75rem;
+  bottom: 0.75rem;
+  z-index: 10;
+  padding: 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.6rem;
+  background: rgba(20, 20, 23, 0.82);
+  backdrop-filter: blur(6px);
+  color: #f0ece4;
+  font-family: system-ui, sans-serif;
+  user-select: none;
+}
+
+.plan-title {
+  margin-bottom: 0.4rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #b8b2a8;
+}
+
+.plan-svg {
+  display: block;
+  width: 300px;
+  height: 260px;
+  touch-action: none; /* evita scroll/zoom del navegador durante el drag */
+}
+
+.plan-floor {
+  fill: rgba(216, 212, 204, 0.12);
+  stroke: none;
+}
+
+.plan-wall-hit {
+  stroke: transparent;
+  stroke-width: 16; /* área de click generosa, invisible */
+  stroke-linecap: round;
+  cursor: pointer;
+}
+
+.plan-wall {
+  stroke: #e8e4dc;
+  stroke-width: 3;
+  stroke-linecap: round;
+  pointer-events: none; /* el click lo captura .plan-wall-hit */
+}
+
+.plan-wall.is-selected {
+  stroke: #c084fc;
+  stroke-width: 5;
+}
+
+.plan-wall.is-murito {
+  stroke: #7dd3fc;
+  stroke-dasharray: 6 4;
+}
+
+.plan-label {
+  fill: #9a948a;
+  font-size: 9px;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.plan-door {
+  stroke: #f0b860;
+  stroke-width: 5;
+  stroke-linecap: butt;
+  pointer-events: none;
+}
+
+.plan-window {
+  stroke: #7dd3fc;
+  stroke-width: 5;
+  stroke-linecap: butt;
+  pointer-events: none;
+}
+
+.plan-item {
+  fill: #cdd6df;
+  stroke: #16171d;
+  stroke-width: 1.5;
+  cursor: grab;
+}
+
+.plan-item.is-selected {
+  fill: #c084fc;
+  stroke: #f0ece4;
+}
+
+.plan-corner {
+  fill: #16171d;
+  stroke: #f0ece4;
+  stroke-width: 2;
+  cursor: grab;
+}
+
+.plan-corner.is-dragging {
+  fill: #c084fc;
+  cursor: grabbing;
+}
+
+.plan-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+}
+
+.plan-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.plan-controls input {
+  width: 100%;
+}
+
+.plan-controls small {
+  color: #8a857c;
+  font-size: 0.68rem;
+}
+
+.plan-transparent {
+  align-self: flex-start;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid rgba(125, 211, 252, 0.5);
+  border-radius: 0.4rem;
+  background: rgba(125, 211, 252, 0.1);
+  color: #bfe9ff;
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+
+.plan-transparent.is-on {
+  background: rgba(125, 211, 252, 0.28);
+  border-color: rgba(125, 211, 252, 0.8);
+}
+
+.plan-add-door,
+.plan-remove-door {
+  align-self: flex-start;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid rgba(240, 184, 96, 0.5);
+  border-radius: 0.4rem;
+  background: rgba(240, 184, 96, 0.12);
+  color: #f0d6a8;
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+
+.plan-add-door:hover,
+.plan-remove-door:hover {
+  background: rgba(240, 184, 96, 0.22);
+}
+
+.plan-door-ctrl {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.4rem;
+  border: 1px solid rgba(240, 184, 96, 0.25);
+  border-radius: 0.4rem;
+}
+
+.plan-door-ctrl label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.74rem;
+  color: #b8b2a8;
+}
+
+.plan-door-width {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.plan-door-width input {
+  width: 4rem;
+}
+
+.plan-hint {
+  margin-top: 0.5rem;
+  max-width: 300px;
+  font-size: 0.68rem;
+  line-height: 1.4;
+  color: #8a857c;
+}

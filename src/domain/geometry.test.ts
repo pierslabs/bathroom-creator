@@ -1,0 +1,125 @@
+import { describe, it, expect } from "vitest";
+import type { Design } from "./types";
+import {
+  wallSegments,
+  signedArea,
+  floorArea,
+  wallLength,
+  wallParts,
+} from "./geometry";
+
+/**
+ * Baño en L (como el croquis): un cuadrado de 2x2 al que le falta una esquina
+ * de 1x1 arriba a la izquierda. Área esperada = 4 - 1 = 3 m².
+ *
+ *   (0,2)---(1,2)
+ *     |       |
+ *   (0,1)   (1,2)... el contorno real, en sentido horario, es:
+ */
+function makeLShapedDesign(): Design {
+  const points = [
+    { x: 0, y: 0 }, // 0  esquina inferior izquierda
+    { x: 2, y: 0 }, // 1  inferior derecha
+    { x: 2, y: 2 }, // 2  superior derecha
+    { x: 1, y: 2 }, // 3  entrante (arranca el escalón)
+    { x: 1, y: 1 }, // 4  baja el escalón
+    { x: 0, y: 1 }, // 5  vuelve al borde izquierdo
+  ];
+  const wall = () => ({
+    height: 2.4,
+    thickness: 0.1,
+    materialId: null,
+    openings: [],
+  });
+  return {
+    points,
+    walls: points.map(wall),
+    items: [],
+    materials: {},
+    floorMaterialId: null,
+  };
+}
+
+describe("wallSegments", () => {
+  it("deriva una pared por cada arista, cerrando el polígono", () => {
+    const design = makeLShapedDesign();
+    const segs = wallSegments(design);
+
+    // 6 puntos -> 6 paredes (el polígono cierra).
+    expect(segs).toHaveLength(6);
+
+    // La primera pared va del punto 0 al punto 1.
+    expect(segs[0].start).toEqual({ x: 0, y: 0 });
+    expect(segs[0].end).toEqual({ x: 2, y: 0 });
+
+    // La última pared cierra: del último punto de vuelta al primero.
+    expect(segs[5].start).toEqual({ x: 0, y: 1 });
+    expect(segs[5].end).toEqual({ x: 0, y: 0 });
+  });
+
+  it("propaga las propiedades de cada pared (ej. un murito)", () => {
+    const design = makeLShapedDesign();
+    design.walls[3].height = 1.1; // el murito
+    const segs = wallSegments(design);
+    expect(segs[3].height).toBe(1.1);
+  });
+});
+
+describe("signedArea / floorArea", () => {
+  it("calcula el área del polígono en L (shoelace)", () => {
+    const design = makeLShapedDesign();
+    expect(floorArea(design)).toBeCloseTo(3);
+  });
+
+  it("signedArea es negativa para contorno horario, positiva para antihorario", () => {
+    const design = makeLShapedDesign();
+    const cw = signedArea(design.points);
+    const ccw = signedArea([...design.points].reverse());
+    expect(Math.sign(cw)).toBe(-Math.sign(ccw));
+    expect(Math.abs(cw)).toBeCloseTo(Math.abs(ccw));
+  });
+});
+
+describe("wallLength", () => {
+  it("mide la longitud de una arista", () => {
+    const design = makeLShapedDesign();
+    const segs = wallSegments(design);
+    expect(wallLength(segs[0])).toBeCloseTo(2); // (0,0)->(2,0)
+    expect(wallLength(segs[4])).toBeCloseTo(1); // (1,1)->(0,1)
+  });
+});
+
+describe("wallParts", () => {
+  it("sin huecos: una pared maciza de punta a punta", () => {
+    const parts = wallParts(4, 2.4, []);
+    expect(parts).toHaveLength(1);
+    expect(parts[0]).toEqual({ start: 0, length: 4, bottom: 0, height: 2.4 });
+  });
+
+  it("una puerta: pilar izq + dintel + pilar der (el hueco queda vacío)", () => {
+    // Puerta en offset 1.5, ancho 0.9, alto 2.0, sill 0 (llega al piso).
+    const parts = wallParts(4, 2.4, [
+      { offset: 1.5, width: 0.9, height: 2.0, sill: 0 },
+    ]);
+    expect(parts).toHaveLength(3);
+    // pilar izquierdo, de altura completa
+    expect(parts[0]).toEqual({ start: 0, length: 1.5, bottom: 0, height: 2.4 });
+    // dintel encima del hueco: arranca a 2.0 y sube hasta 2.4
+    expect(parts[1].bottom).toBeCloseTo(2.0);
+    expect(parts[1].height).toBeCloseTo(0.4);
+    expect(parts[1].length).toBeCloseTo(0.9);
+    // pilar derecho
+    expect(parts[2].start).toBeCloseTo(2.4);
+    expect(parts[2].height).toBeCloseTo(2.4);
+  });
+
+  it("una ventana (sill > 0) agrega también el tramo inferior", () => {
+    const parts = wallParts(4, 2.4, [
+      { offset: 1.5, width: 1.0, height: 1.0, sill: 1.0 },
+    ]);
+    // pilar izq + antepecho + dintel + pilar der
+    expect(parts).toHaveLength(4);
+    const sill = parts.find((p) => p.start === 1.5 && p.bottom === 0);
+    expect(sill?.height).toBeCloseTo(1.0); // antepecho de 0 a 1.0
+  });
+});

@@ -1,0 +1,157 @@
+.catalog {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 10;
+  width: 200px;
+  padding: 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.6rem;
+  background: rgba(20, 20, 23, 0.82);
+  backdrop-filter: blur(6px);
+  color: #f0ece4;
+  font-family: system-ui, sans-serif;
+  user-select: none;
+}
+
+.catalog-title,
+.catalog-subtitle {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #b8b2a8;
+}
+
+.catalog-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+.catalog-btn {
+  padding: 0.4rem 0.3rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.4rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: #f0ece4;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.catalog-btn:hover {
+  background: rgba(192, 132, 252, 0.18);
+  border-color: rgba(192, 132, 252, 0.5);
+}
+
+.catalog-controls {
+  margin-top: 0.7rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.catalog-size {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0.5rem 0;
+}
+
+.catalog-size-field {
+  display: grid;
+  grid-template-columns: 3.2rem 1fr 0.8rem;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.74rem;
+  color: #b8b2a8;
+}
+
+.catalog-base {
+  margin-top: 0.45rem;
+  grid-template-columns: 4.4rem 1fr 0.8rem !important;
+}
+
+.catalog-size-field input {
+  width: 100%;
+  padding: 0.2rem 0.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.3rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: #f0ece4;
+  font-size: 0.78rem;
+}
+
+.catalog-unit {
+  color: #8a857c;
+}
+
+.catalog-drain {
+  margin: 0.5rem 0;
+  font-size: 0.74rem;
+  color: #b8b2a8;
+}
+
+.catalog-drain-label {
+  display: block;
+  margin-bottom: 0.3rem;
+}
+
+.catalog-drain-opts {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.catalog-drain-opts button {
+  flex: 1;
+  padding: 0.3rem 0.2rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.35rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: #f0ece4;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.catalog-drain-opts button.is-on {
+  background: rgba(192, 132, 252, 0.22);
+  border-color: rgba(192, 132, 252, 0.7);
+}
+
+.catalog-row {
+  display: flex;
+  gap: 0.35rem;
+  margin: 0.45rem 0;
+}
+
+.catalog-row button {
+  flex: 1;
+  padding: 0.35rem 0.2rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.4rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: #f0ece4;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.catalog-row button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.catalog-danger {
+  color: #fca5a5 !important;
+}
+
+.catalog-danger:hover {
+  background: rgba(252, 165, 165, 0.15) !important;
+  border-color: rgba(252, 165, 165, 0.5) !important;
+}
+
+.catalog-controls small,
+.catalog-hint {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.68rem;
+  line-height: 1.4;
+  color: #8a857c;
+}
