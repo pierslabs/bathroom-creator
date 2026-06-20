@@ -1,79 +1,44 @@
 /**
- * Panel de azulejos. Sube una foto, la registra como Material y la aplica a la
- * SUPERFICIE seleccionada (piso o pared). Sin lógica de negocio: orquesta el
- * store. La superficie se elige clickeando en el 3D (piso o pared).
+ * Panel de azulejos. Sube fotos, las registra como Material y las aplica a la
+ * superficie seleccionada. El "a qué superficie aplico" vive en useTextureTarget;
+ * este componente solo maneja la galería y el tamaño del azulejo.
  *
  * La foto se convierte en un object URL (vive en memoria durante la sesión).
  * El azulejo guarda ese src + su ancho y largo reales (puede ser rectangular).
  */
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useDesignStore } from "../state/designStore";
-import { kindOf } from "../catalog/catalog";
+import { useTextureTarget } from "./useTextureTarget";
+import { fileToDataURL } from "./image";
 import "./TexturePanel.css";
 
 export function TexturePanel() {
   const materials = useDesignStore((s) => s.design.materials);
-  const floorMaterialId = useDesignStore((s) => s.design.floorMaterialId);
-  const walls = useDesignStore((s) => s.design.walls);
   const addMaterial = useDesignStore((s) => s.addMaterial);
-  const setFloorMaterial = useDesignStore((s) => s.setFloorMaterial);
-  const setWallMaterial = useDesignStore((s) => s.setWallMaterial);
   const removeMaterial = useDesignStore((s) => s.removeMaterial);
-  const setItemBaseMaterial = useDesignStore((s) => s.setItemBaseMaterial);
-  const selectedWall = useDesignStore((s) => s.selectedWall);
-  const floorSelected = useDesignStore((s) => s.floorSelected);
-  const selectedItemId = useDesignStore((s) => s.selectedItemId);
-  const items = useDesignStore((s) => s.design.items);
+  const target = useTextureTarget();
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [tileW, setTileW] = useState(0.3);
   const [tileH, setTileH] = useState(0.3);
-  const counter = useRef(0);
   const list = Object.values(materials);
 
-  // El murete de una mampara seleccionada también es revestible.
-  const selItem = items.find((i) => i.id === selectedItemId) ?? null;
-  const showerBase =
-    selItem && kindOf(selItem.modelRef) === "shower" && (selItem.baseHeight ?? 0) > 0
-      ? selItem
-      : null;
-
-  // Superficie destino, derivada de la selección global.
-  const surfaceLabel = floorSelected
-    ? "piso"
-    : selectedWall !== null
-      ? `pared ${selectedWall}`
-      : showerBase
-        ? "murete mampara"
-        : null;
-
-  const surfaceHasTile = floorSelected
-    ? floorMaterialId != null
-    : selectedWall !== null
-      ? walls[selectedWall]?.materialId != null
-      : showerBase
-        ? showerBase.baseMaterialId != null
-        : false;
-
-  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = ""; // permite resubir el mismo archivo
     if (!file) return;
-    counter.current += 1;
-    const id = `mat-${counter.current}`;
-    const src = URL.createObjectURL(file);
-
-    // Leemos la proporción real de la imagen para no deformar el azulejo:
-    // ajustamos el largo según el aspecto (alto/ancho) de la foto.
-    const img = new Image();
-    img.onload = () => {
-      const ratio = img.naturalWidth ? img.naturalHeight / img.naturalWidth : 1;
+    try {
+      // data URL (no object URL): autocontenido y persistible.
+      const { src, ratio } = await fileToDataURL(file);
+      const id = crypto.randomUUID();
+      // Ajustamos el largo del azulejo al aspecto de la foto (no deformar).
       const h = Math.max(0.02, +(tileW * ratio).toFixed(2));
       setTileH(h);
       addMaterial({ id, src, tileWidth: tileW, tileHeight: h });
       setActiveId(id);
-    };
-    img.src = src;
-    e.target.value = ""; // permite resubir el mismo archivo
+    } catch (err) {
+      console.warn("No se pudo cargar la imagen", err);
+    }
   };
 
   const updateTile = (w: number, h: number) => {
@@ -92,33 +57,19 @@ export function TexturePanel() {
   };
 
   const deleteMaterial = (id: string) => {
-    const mat = materials[id];
-    if (mat) URL.revokeObjectURL(mat.src); // libera la memoria de la foto
+    // Ya no hay object URL que revocar: las fotos son data URLs autocontenidos.
     removeMaterial(id);
     if (activeId === id) setActiveId(null);
-  };
-
-  const apply = () => {
-    if (!activeId) return;
-    if (floorSelected) setFloorMaterial(activeId);
-    else if (selectedWall !== null) setWallMaterial(selectedWall, activeId);
-    else if (showerBase) setItemBaseMaterial(showerBase.id, activeId);
-  };
-
-  const clear = () => {
-    if (floorSelected) setFloorMaterial(null);
-    else if (selectedWall !== null) setWallMaterial(selectedWall, null);
-    else if (showerBase) setItemBaseMaterial(showerBase.id, null);
   };
 
   return (
     <div className="tex">
       <div className="tex-title">Azulejos</div>
 
-      <div className={`tex-target ${surfaceLabel ? "" : "is-empty"}`}>
-        {surfaceLabel ? (
+      <div className={`tex-target ${target.label ? "" : "is-empty"}`}>
+        {target.label ? (
           <>
-            Superficie: <b>{surfaceLabel}</b>
+            Superficie: <b>{target.label}</b>
           </>
         ) : (
           "Clic en el piso o una pared (en el 3D)"
@@ -186,14 +137,14 @@ export function TexturePanel() {
       <div className="tex-actions">
         <button
           type="button"
-          disabled={!activeId || !surfaceLabel}
-          onClick={apply}
+          disabled={!activeId || !target.label}
+          onClick={() => activeId && target.apply(activeId)}
         >
-          {surfaceLabel ? `Aplicar a ${surfaceLabel}` : "Elegí una superficie"}
+          {target.label ? `Aplicar a ${target.label}` : "Elegí una superficie"}
         </button>
-        {surfaceHasTile && (
-          <button type="button" className="tex-clear" onClick={clear}>
-            Quitar de {surfaceLabel}
+        {target.hasTile && (
+          <button type="button" className="tex-clear" onClick={target.clear}>
+            Quitar de {target.label}
           </button>
         )}
       </div>

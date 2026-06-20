@@ -12,6 +12,7 @@ import * as THREE from "three";
 import type { ThreeEvent } from "@react-three/fiber";
 import { useDesignStore } from "../state/designStore";
 import { TileMaterial } from "./TileMaterial";
+import { ACCENT } from "./theme";
 
 export function Floor() {
   const points = useDesignStore((s) => s.design.points);
@@ -56,7 +57,7 @@ export function Floor() {
       ) : (
         <meshStandardMaterial
           color={floorSelected ? "#c9bfe0" : "#d8d4cc"}
-          emissive={floorSelected ? "#c084fc" : "#000000"}
+          emissive={floorSelected ? ACCENT : "#000000"}
           emissiveIntensity={floorSelected ? 0.25 : 0}
           side={THREE.DoubleSide}
         />

@@ -15,9 +15,10 @@ import type { Item } from "../domain/types";
 import { useDesignStore } from "../state/designStore";
 import { TileMaterial } from "../scene/TileMaterial";
 import { kindOf, naturalSize } from "./catalog";
+import { ACCENT } from "../scene/theme";
 
 const BASE = "#cdd6df";
-const SELECTED = "#c084fc";
+const SELECTED = ACCENT;
 
 export function ItemModel({
   item,

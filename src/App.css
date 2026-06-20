@@ -36,3 +36,19 @@
   font-size: 0.8rem;
   color: #b8b2a8;
 }
+
+.hud-reset {
+  pointer-events: auto; /* el .hud tiene pointer-events:none; lo reactivamos */
+  margin-left: 0.5rem;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 0.4rem;
+  background: rgba(255, 255, 255, 0.06);
+  color: #f0ece4;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.hud-reset:hover {
+  background: rgba(255, 255, 255, 0.14);
+}

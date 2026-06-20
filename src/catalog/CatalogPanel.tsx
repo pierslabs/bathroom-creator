@@ -3,18 +3,21 @@
  * Solo orquesta acciones del store; sin lógica de negocio propia.
  */
 import { useDesignStore } from "../state/designStore";
+import { toWorldXZ } from "../scene/coords";
+import type { Point2 } from "../domain/types";
 import { CATALOG, kindOf } from "./catalog";
 import "./CatalogPanel.css";
 
 const HALF_PI = Math.PI / 2;
 
-/** Centro (bounding box) del baño, en coordenadas de MUNDO (z = -y). */
-function roomCenterWorld(points: { x: number; y: number }[]) {
+/** Centro (bounding box) del baño, en coordenadas de MUNDO. */
+function roomCenterWorld(points: Point2[]) {
   const xs = points.map((p) => p.x);
   const ys = points.map((p) => p.y);
   const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
   const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
-  return { x: cx, y: 0, z: -cy };
+  const [x, z] = toWorldXZ({ x: cx, y: cy });
+  return { x, y: 0, z };
 }
 
 export function CatalogPanel() {

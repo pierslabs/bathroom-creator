@@ -11,6 +11,7 @@
 import { useMemo } from "react";
 import * as THREE from "three";
 import { useLoader } from "@react-three/fiber";
+import { ACCENT } from "./theme";
 
 export function TileMaterial({
   src,
@@ -49,7 +50,7 @@ export function TileMaterial({
       key={transparent ? "fade" : "solid"}
       map={map}
       side={doubleSide ? THREE.DoubleSide : THREE.FrontSide}
-      emissive={highlight ? "#c084fc" : "#000000"}
+      emissive={highlight ? ACCENT : "#000000"}
       emissiveIntensity={highlight ? 0.25 : 0}
       transparent={transparent}
       opacity={opacity}

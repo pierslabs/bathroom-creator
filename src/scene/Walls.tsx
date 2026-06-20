@@ -15,6 +15,8 @@ import type { ThreeEvent } from "@react-three/fiber";
 import { useDesignStore } from "../state/designStore";
 import { wallSegments, wallParts, type WallSegment } from "../domain/geometry";
 import { TileMaterial } from "./TileMaterial";
+import { toWorldXZ } from "./coords";
+import { ACCENT } from "./theme";
 
 const FRAME_COLOR = "#f3efe6";
 const FRAME_T = 0.06; // ancho visible del marco (jamba/dintel), en metros
@@ -94,11 +96,9 @@ function Wall({ seg, selected }: { seg: WallSegment; selected: boolean }) {
   const materials = useDesignStore((s) => s.design.materials);
   const selectWall = useDesignStore((s) => s.selectWall);
 
-  // Mapeo dominio -> mundo: x = x, z = -y (coincide con el piso).
-  const ax = seg.start.x;
-  const az = -seg.start.y;
-  const bx = seg.end.x;
-  const bz = -seg.end.y;
+  // Mapeo dominio -> mundo (z = -y), centralizado en coords.ts.
+  const [ax, az] = toWorldXZ(seg.start);
+  const [bx, bz] = toWorldXZ(seg.end);
 
   const dx = bx - ax;
   const dz = bz - az;
@@ -160,7 +160,7 @@ function Wall({ seg, selected }: { seg: WallSegment; selected: boolean }) {
                 // (Three no recompila el blending al togglear `transparent`).
                 key={fade ? "fade" : "solid"}
                 color={selected && !fade ? "#d8c4f0" : "#e8e4dc"}
-                emissive={selected && !fade ? "#c084fc" : "#000000"}
+                emissive={selected && !fade ? ACCENT : "#000000"}
                 emissiveIntensity={selected && !fade ? 0.25 : 0}
                 transparent={fade}
                 opacity={fade ? FADE_OPACITY : 1}

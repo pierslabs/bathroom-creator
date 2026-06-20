@@ -14,8 +14,10 @@ import type {
   Opening,
   Point2,
   Size,
+  Wall,
 } from "../domain/types";
 import { naturalSize } from "../catalog/catalog";
+import { loadDesign, saveDesign } from "./persistence";
 
 /** Baño en L por defecto (basado en el croquis), para tener algo que mostrar. */
 function defaultDesign(): Design {
@@ -41,10 +43,26 @@ function defaultDesign(): Design {
   };
 }
 
-let itemCounter = 0;
-function nextItemId(): string {
-  itemCounter += 1;
-  return `item-${itemCounter}`;
+// IDs únicos que NO colisionan al recargar (el contador volvía a 0 y chocaba
+// con los ids del diseño cargado desde localStorage).
+const nextItemId = () => `item-${crypto.randomUUID()}`;
+
+// --- Helpers de actualización inmutable ---------------------------------------
+// Toda mutación de pared/item pasa por aquí: un solo lugar que sabe "copiar el
+// diseño cambiando UNA pared/item". Antes esto estaba copiado en ~12 acciones.
+
+function patchWall(design: Design, index: number, patch: Partial<Wall>): Design {
+  return {
+    ...design,
+    walls: design.walls.map((w, i) => (i === index ? { ...w, ...patch } : w)),
+  };
+}
+
+function patchItem(design: Design, id: string, patch: Partial<Item>): Design {
+  return {
+    ...design,
+    items: design.items.map((it) => (it.id === id ? { ...it, ...patch } : it)),
+  };
 }
 
 interface DesignState {
@@ -92,7 +110,7 @@ interface DesignState {
   // --- Materiales (fotos de azulejos) ---
   addMaterial: (material: Material) => void;
   setFloorMaterial: (materialId: string | null) => void;
-  /** Elimina un azulejo y limpia toda referencia a él (piso y paredes). */
+  /** Elimina un azulejo y limpia toda referencia a él (piso, paredes, muretes). */
   removeMaterial: (id: string) => void;
 
   // --- Persistencia ---
@@ -102,7 +120,8 @@ interface DesignState {
 }
 
 export const useDesignStore = create<DesignState>((set, get) => ({
-  design: defaultDesign(),
+  // Arranca del diseño guardado; si no hay, el baño en L por defecto.
+  design: loadDesign() ?? defaultDesign(),
   selectedItemId: null,
   selectedWall: null,
   floorSelected: false,
@@ -115,80 +134,50 @@ export const useDesignStore = create<DesignState>((set, get) => ({
   selectFloor: () =>
     set({ floorSelected: true, selectedItemId: null, selectedWall: null }),
 
+  // --- Contorno / paredes ---
   movePoint: (index, p) =>
-    set((s) => {
-      const points = s.design.points.map((pt, i) => (i === index ? p : pt));
-      return { design: { ...s.design, points } };
-    }),
-
-  setWallHeight: (index, height) =>
-    set((s) => {
-      const walls = s.design.walls.map((w, i) =>
-        i === index ? { ...w, height } : w,
-      );
-      return { design: { ...s.design, walls } };
-    }),
-
-  setWallMaterial: (index, materialId) =>
-    set((s) => {
-      const walls = s.design.walls.map((w, i) =>
-        i === index ? { ...w, materialId } : w,
-      );
-      return { design: { ...s.design, walls } };
-    }),
-
-  setWallTransparent: (index, value) =>
     set((s) => ({
       design: {
         ...s.design,
-        walls: s.design.walls.map((w, i) =>
-          i === index ? { ...w, transparent: value } : w,
-        ),
+        points: s.design.points.map((pt, i) => (i === index ? p : pt)),
       },
     })),
 
+  setWallHeight: (index, height) =>
+    set((s) => ({ design: patchWall(s.design, index, { height }) })),
+
+  setWallMaterial: (index, materialId) =>
+    set((s) => ({ design: patchWall(s.design, index, { materialId }) })),
+
+  setWallTransparent: (index, transparent) =>
+    set((s) => ({ design: patchWall(s.design, index, { transparent }) })),
+
   addOpening: (wallIndex, opening) =>
     set((s) => ({
-      design: {
-        ...s.design,
-        walls: s.design.walls.map((w, i) =>
-          i === wallIndex ? { ...w, openings: [...w.openings, opening] } : w,
-        ),
-      },
+      design: patchWall(s.design, wallIndex, {
+        openings: [...s.design.walls[wallIndex].openings, opening],
+      }),
     })),
 
   updateOpening: (wallIndex, openingIndex, patch) =>
     set((s) => ({
-      design: {
-        ...s.design,
-        walls: s.design.walls.map((w, i) =>
-          i === wallIndex
-            ? {
-                ...w,
-                openings: w.openings.map((o, oi) =>
-                  oi === openingIndex ? { ...o, ...patch } : o,
-                ),
-              }
-            : w,
+      design: patchWall(s.design, wallIndex, {
+        openings: s.design.walls[wallIndex].openings.map((o, i) =>
+          i === openingIndex ? { ...o, ...patch } : o,
         ),
-      },
+      }),
     })),
 
   removeOpening: (wallIndex, openingIndex) =>
     set((s) => ({
-      design: {
-        ...s.design,
-        walls: s.design.walls.map((w, i) =>
-          i === wallIndex
-            ? {
-                ...w,
-                openings: w.openings.filter((_, oi) => oi !== openingIndex),
-              }
-            : w,
+      design: patchWall(s.design, wallIndex, {
+        openings: s.design.walls[wallIndex].openings.filter(
+          (_, i) => i !== openingIndex,
         ),
-      },
+      }),
     })),
 
+  // --- Items ---
   addItem: (modelRef, position = { x: 0, y: 0, z: 0 }) => {
     const id = nextItemId();
     const item: Item = {
@@ -203,64 +192,24 @@ export const useDesignStore = create<DesignState>((set, get) => ({
   },
 
   moveItem: (id, position) =>
-    set((s) => ({
-      design: {
-        ...s.design,
-        items: s.design.items.map((it) =>
-          it.id === id ? { ...it, position } : it,
-        ),
-      },
-    })),
+    set((s) => ({ design: patchItem(s.design, id, { position }) })),
 
   rotateItem: (id, rotationY) =>
-    set((s) => ({
-      design: {
-        ...s.design,
-        items: s.design.items.map((it) =>
-          it.id === id ? { ...it, rotationY } : it,
-        ),
-      },
-    })),
+    set((s) => ({ design: patchItem(s.design, id, { rotationY }) })),
 
   resizeItem: (id, size) =>
-    set((s) => ({
-      design: {
-        ...s.design,
-        items: s.design.items.map((it) =>
-          it.id === id ? { ...it, size } : it,
-        ),
-      },
-    })),
+    set((s) => ({ design: patchItem(s.design, id, { size }) })),
 
   setItemBaseHeight: (id, baseHeight) =>
-    set((s) => ({
-      design: {
-        ...s.design,
-        items: s.design.items.map((it) =>
-          it.id === id ? { ...it, baseHeight } : it,
-        ),
-      },
-    })),
+    set((s) => ({ design: patchItem(s.design, id, { baseHeight }) })),
 
   setItemBaseMaterial: (id, materialId) =>
     set((s) => ({
-      design: {
-        ...s.design,
-        items: s.design.items.map((it) =>
-          it.id === id ? { ...it, baseMaterialId: materialId ?? undefined } : it,
-        ),
-      },
+      design: patchItem(s.design, id, { baseMaterialId: materialId ?? undefined }),
     })),
 
-  setItemDrain: (id, position) =>
-    set((s) => ({
-      design: {
-        ...s.design,
-        items: s.design.items.map((it) =>
-          it.id === id ? { ...it, drainPosition: position } : it,
-        ),
-      },
-    })),
+  setItemDrain: (id, drainPosition) =>
+    set((s) => ({ design: patchItem(s.design, id, { drainPosition }) })),
 
   removeItem: (id) =>
     set((s) => ({
@@ -271,6 +220,7 @@ export const useDesignStore = create<DesignState>((set, get) => ({
       selectedItemId: s.selectedItemId === id ? null : s.selectedItemId,
     })),
 
+  // --- Materiales ---
   addMaterial: (material) =>
     set((s) => ({
       design: {
@@ -290,7 +240,7 @@ export const useDesignStore = create<DesignState>((set, get) => ({
         design: {
           ...s.design,
           materials,
-          // Limpia las referencias huérfanas.
+          // Limpia las referencias huérfanas (piso, paredes, muretes).
           floorMaterialId:
             s.design.floorMaterialId === id ? null : s.design.floorMaterialId,
           walls: s.design.walls.map((w) =>
@@ -303,6 +253,7 @@ export const useDesignStore = create<DesignState>((set, get) => ({
       };
     }),
 
+  // --- Persistencia ---
   exportDesign: () => JSON.stringify(get().design, null, 2),
 
   loadDesign: (design) => set({ design }),
@@ -315,3 +266,14 @@ export const useDesignStore = create<DesignState>((set, get) => ({
       floorSelected: false,
     }),
 }));
+
+// Auto-guardado con debounce: persistimos el diseño 400ms después del último
+// cambio. Sin debounce, arrastrar una esquina serializaría todo el diseño
+// (incluidas las fotos base64) en cada frame. Solo reacciona a cambios de
+// `design`, no a la selección.
+let saveTimer: ReturnType<typeof setTimeout> | undefined;
+useDesignStore.subscribe((state, prev) => {
+  if (state.design === prev.design) return;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => saveDesign(state.design), 400);
+});
