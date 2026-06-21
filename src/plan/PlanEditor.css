@@ -192,3 +192,49 @@
   line-height: 1.4;
   color: #8a857c;
 }
+
+.plan-region {
+  stroke: #22e06a;
+  stroke-width: 5;
+  stroke-linecap: round;
+  opacity: 0.6;
+  cursor: pointer;
+}
+
+.plan-region.is-active {
+  stroke-width: 7;
+  opacity: 1;
+}
+
+.plan-regions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.plan-region-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3rem 0.5rem;
+}
+
+.plan-row {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.plan-row button {
+  padding: 0.3rem 0.55rem;
+  border: 1px solid rgba(240, 184, 96, 0.4);
+  border-radius: 0.4rem;
+  background: rgba(240, 184, 96, 0.1);
+  color: #f0d6a8;
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+
+.plan-door-ctrl.is-on {
+  border-color: rgba(240, 184, 96, 0.7);
+  background: rgba(240, 184, 96, 0.08);
+}

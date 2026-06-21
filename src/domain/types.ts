@@ -23,6 +23,9 @@ export interface Size {
 /** Posición del desagüe de un plato de ducha. */
 export type DrainPosition = "center" | "back" | "corner";
 
+/** Forma de un espejo. */
+export type MirrorShape = "square" | "round";
+
 /**
  * Un hueco en una pared: puerta o ventana. No es un objeto encima de la pared,
  * es la AUSENCIA de pared en un tramo. La geometría maciza se deriva de esto
@@ -40,6 +43,26 @@ export interface Opening {
 }
 
 /**
+ * Una ZONA de revestimiento: un rectángulo de la cara de la pared con su propio
+ * azulejo. Es el dual de un Opening: el opening QUITA pared en un tramo; la
+ * región AGREGA un revestimiento distinto sobre un tramo. La pared conserva su
+ * material base; la región lo pisa solo en su rectángulo (ej. la piedra de la
+ * ducha sin teñir toda la pared). Coordenadas LOCALes a la pared, en metros.
+ */
+export interface TileRegion {
+  /** Distancia del borde izquierdo de la zona desde el inicio de la pared. */
+  offset: number;
+  /** Ancho de la zona, a lo largo de la pared. */
+  width: number;
+  /** Base de la zona desde el piso (0 = arranca en el suelo). */
+  bottom: number;
+  /** Alto de la zona. */
+  height: number;
+  /** Azulejo (Material) que reviste esta zona. */
+  materialId: string;
+}
+
+/**
  * Propiedades de una pared. Una pared es la ARISTA entre el punto `i` y el
  * punto `i+1` del contorno. Por eso `walls[i]` describe el lado que arranca en
  * `points[i]`. Un "murito" es simplemente una pared con `height` chico.
@@ -53,6 +76,8 @@ export interface Wall {
   materialId: string | null;
   /** Huecos en esta pared (puertas/ventanas). */
   openings: Opening[];
+  /** Zonas de revestimiento parcial (azulejo distinto en un rectángulo). */
+  tileRegions?: TileRegion[];
   /** Forzar transparencia (además del desvanecido automático por cámara). */
   transparent?: boolean;
 }
@@ -77,6 +102,8 @@ export interface Item {
   baseMaterialId?: string;
   /** Solo plato de ducha: posición del desagüe (default "center"). */
   drainPosition?: DrainPosition;
+  /** Solo espejo: forma (default "square"). */
+  mirrorShape?: MirrorShape;
 }
 
 /**

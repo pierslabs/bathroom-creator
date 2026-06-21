@@ -26,11 +26,34 @@ const NONE: TextureTarget = {
 export function useTextureTarget(): TextureTarget {
   const design = useDesignStore((s) => s.design);
   const selectedWall = useDesignStore((s) => s.selectedWall);
+  const selectedRegion = useDesignStore((s) => s.selectedRegion);
   const floorSelected = useDesignStore((s) => s.floorSelected);
   const selectedItemId = useDesignStore((s) => s.selectedItemId);
   const setFloorMaterial = useDesignStore((s) => s.setFloorMaterial);
   const setWallMaterial = useDesignStore((s) => s.setWallMaterial);
   const setItemBaseMaterial = useDesignStore((s) => s.setItemBaseMaterial);
+  const updateTileRegion = useDesignStore((s) => s.updateTileRegion);
+  const removeTileRegion = useDesignStore((s) => s.removeTileRegion);
+
+  // La zona de revestimiento gana a la pared: con una zona activa, el azulejo
+  // va al rectángulo, no a toda la cara. "Quitar" elimina la zona (revestir
+  // parcial sin azulejo no tiene sentido).
+  if (selectedRegion) {
+    const region =
+      design.walls[selectedRegion.wall]?.tileRegions?.[selectedRegion.index];
+    if (region) {
+      return {
+        label: `zona (pared ${selectedRegion.wall})`,
+        hasTile: true,
+        apply: (id) =>
+          updateTileRegion(selectedRegion.wall, selectedRegion.index, {
+            materialId: id,
+          }),
+        clear: () =>
+          removeTileRegion(selectedRegion.wall, selectedRegion.index),
+      };
+    }
+  }
 
   if (floorSelected) {
     return {

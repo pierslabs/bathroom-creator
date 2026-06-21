@@ -18,6 +18,7 @@ import {
   wallSegments,
   wallParts,
   miterCorners,
+  clampRegion,
   type WallSegment,
   type Corner,
 } from "../domain/geometry";
@@ -114,6 +115,8 @@ function Wall({
 }) {
   const materials = useDesignStore((s) => s.design.materials);
   const selectWall = useDesignStore((s) => s.selectWall);
+  const selectRegion = useDesignStore((s) => s.selectRegion);
+  const selectedRegion = useDesignStore((s) => s.selectedRegion);
 
   // Mapeo dominio -> mundo (z = -y), centralizado en coords.ts. Para los Frames
   // (marcos de huecos) seguimos posicionando en mundo con eje + ángulo.
@@ -128,6 +131,9 @@ function Wall({
 
   const material = seg.materialId ? materials[seg.materialId] : null;
   const fade = seg.transparent === true;
+  // La pared seleccionada se resalta (rosa) SIEMPRE, tenga o no zona activa.
+  // La zona de revestimiento se dibuja en VERDE encima, bien distinguible.
+  const wallHi = selected;
 
   // Geometría con INGLETE. Calculamos los tramos y su planta en coordenadas de
   // dominio (x,y), aplicando las esquinas de inglete en los extremos de la
@@ -211,7 +217,7 @@ function Wall({
                 src={material.src}
                 repeatX={part.length / material.tileWidth}
                 repeatY={part.height / material.tileHeight}
-                highlight={selected && !fade}
+                highlight={wallHi && !fade}
                 doubleSide
                 transparent={fade}
                 opacity={fade ? FADE_OPACITY : 1}
@@ -221,15 +227,66 @@ function Wall({
                 // key fuerza recrear el material al cambiar transparencia
                 // (Three no recompila el blending al togglear `transparent`).
                 key={fade ? "fade" : "solid"}
-                color={selected && !fade ? "#d8c4f0" : "#e8e4dc"}
-                emissive={selected && !fade ? ACCENT : "#000000"}
-                emissiveIntensity={selected && !fade ? 0.25 : 0}
+                color={wallHi && !fade ? "#d8c4f0" : "#e8e4dc"}
+                emissive={wallHi && !fade ? ACCENT : "#000000"}
+                emissiveIntensity={wallHi && !fade ? 0.25 : 0}
                 side={THREE.DoubleSide}
                 transparent={fade}
                 opacity={fade ? FADE_OPACITY : 1}
                 depthWrite={!fade}
               />
             )}
+          </mesh>
+        );
+      })}
+
+      {/* Zonas de revestimiento: paneles finos sobre la cara, con su azulejo.
+          Sobresalen 3mm a cada lado para no pelear (z-fighting) con la pared. */}
+      {(seg.tileRegions ?? []).map((region, ri) => {
+        const rect = clampRegion(region, lengthW, seg.height);
+        if (rect.width <= 0 || rect.height <= 0) return null;
+        const mat = materials[region.materialId];
+        const isSel =
+          selectedRegion?.wall === seg.index && selectedRegion.index === ri;
+        // Sin material y sin estar activa no hay nada que mostrar; pero la zona
+        // ACTIVA se dibuja siempre (en naranja) aunque aún no tenga azulejo.
+        if (!mat && !isSel) return null;
+        const s = rect.start + rect.width / 2;
+        const y = rect.bottom + rect.height / 2;
+        return (
+          <mesh
+            key={`region-${ri}`}
+            position={[ax + ux * s, y, az + uz * s]}
+            rotation={[0, angleY, 0]}
+            castShadow
+            receiveShadow
+            onClick={(e: ThreeEvent<MouseEvent>) => {
+              e.stopPropagation();
+              selectRegion({ wall: seg.index, index: ri });
+            }}
+          >
+            <boxGeometry args={[rect.width, rect.height, seg.thickness + 0.04]} />
+            {isSel ? (
+              // Zona ACTIVA: cara VERDE translúcida sobre la pared rosa. Muestra
+              // exactamente qué rectángulo vas a revestir y se mueve en vivo al
+              // cambiar Desde/Ancho/Base/Alto. Sobresale 2cm para no ocultarse.
+              <meshStandardMaterial
+                color="#22e06a"
+                emissive="#22e06a"
+                emissiveIntensity={0.8}
+                transparent
+                opacity={0.7}
+                depthWrite={false}
+                side={THREE.DoubleSide}
+              />
+            ) : mat ? (
+              <TileMaterial
+                src={mat.src}
+                repeatX={rect.width / mat.tileWidth}
+                repeatY={rect.height / mat.tileHeight}
+                doubleSide
+              />
+            ) : null}
           </mesh>
         );
       })}

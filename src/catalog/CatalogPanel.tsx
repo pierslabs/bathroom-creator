@@ -26,18 +26,25 @@ export function CatalogPanel() {
   const removeItem = useDesignStore((s) => s.removeItem);
   const rotateItem = useDesignStore((s) => s.rotateItem);
   const resizeItem = useDesignStore((s) => s.resizeItem);
+  const setItemElevation = useDesignStore((s) => s.setItemElevation);
   const setItemBaseHeight = useDesignStore((s) => s.setItemBaseHeight);
   const setItemDrain = useDesignStore((s) => s.setItemDrain);
+  const setItemMirrorShape = useDesignStore((s) => s.setItemMirrorShape);
   const selectedItemId = useDesignStore((s) => s.selectedItemId);
   const selectItem = useDesignStore((s) => s.selectItem);
 
   const selected = design.items.find((it) => it.id === selectedItemId) ?? null;
   const isShower = selected ? kindOf(selected.modelRef) === "shower" : false;
   const isTray = selected ? kindOf(selected.modelRef) === "shower_tray" : false;
+  const isMirror = selected ? kindOf(selected.modelRef) === "mirror" : false;
   const DRAINS = [
     { value: "center", label: "Centro" },
     { value: "back", label: "Borde" },
     { value: "corner", label: "Esquina" },
+  ] as const;
+  const SHAPES = [
+    { value: "square", label: "Cuadrado" },
+    { value: "round", label: "Redondo" },
   ] as const;
 
   const add = (modelRef: string) => {
@@ -86,6 +93,23 @@ export function CatalogPanel() {
             ))}
           </div>
 
+          <label className="catalog-size-field catalog-base">
+            <span>Altura suelo</span>
+            <input
+              type="number"
+              min={0}
+              step={0.05}
+              value={selected.position.y}
+              onChange={(e) =>
+                setItemElevation(
+                  selected.id,
+                  Math.max(0, Number(e.target.value) || 0),
+                )
+              }
+            />
+            <span className="catalog-unit">m</span>
+          </label>
+
           {isShower && (
             <label className="catalog-size-field catalog-base">
               <span>Muro bajo</span>
@@ -107,6 +131,28 @@ export function CatalogPanel() {
               />
               <span className="catalog-unit">m</span>
             </label>
+          )}
+
+          {isMirror && (
+            <div className="catalog-drain">
+              <span className="catalog-drain-label">Forma</span>
+              <div className="catalog-drain-opts">
+                {SHAPES.map((sh) => (
+                  <button
+                    key={sh.value}
+                    type="button"
+                    className={
+                      (selected.mirrorShape ?? "square") === sh.value
+                        ? "is-on"
+                        : ""
+                    }
+                    onClick={() => setItemMirrorShape(selected.id, sh.value)}
+                  >
+                    {sh.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
 
           {isTray && (

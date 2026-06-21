@@ -3,7 +3,7 @@
  * puntos), sale un dato. Cero dependencia de Three.js o React — este módulo
  * podría correr en Node, en un worker, o detrás de otro motor de render.
  */
-import type { Design, Opening, Point2 } from "./types";
+import type { Design, Opening, Point2, TileRegion } from "./types";
 
 /** Una pared ya resuelta a coordenadas: lista para que el render la dibuje. */
 export interface WallSegment {
@@ -15,6 +15,7 @@ export interface WallSegment {
   thickness: number;
   materialId: string | null;
   openings: Opening[];
+  tileRegions?: TileRegion[];
   transparent?: boolean;
 }
 
@@ -48,6 +49,7 @@ export function wallSegments(design: Design): WallSegment[] {
       thickness: w.thickness,
       materialId: w.materialId,
       openings: w.openings,
+      tileRegions: w.tileRegions,
       transparent: w.transparent,
     };
   });
@@ -196,6 +198,42 @@ export function miterCorners(
 
     return { left: side(1), right: side(-1) };
   });
+}
+
+/** El rectángulo de una zona de revestimiento ya recortado a la cara. */
+export interface RegionRect {
+  /** Inicio a lo largo de la pared (desde start). */
+  start: number;
+  /** Ancho a lo largo de la pared. */
+  width: number;
+  /** Base vertical (0 = piso). */
+  bottom: number;
+  /** Alto. */
+  height: number;
+}
+
+function clamp(v: number, lo: number, hi: number): number {
+  return Math.min(hi, Math.max(lo, v));
+}
+
+/**
+ * Recorta una zona de revestimiento a los límites reales de la cara de la
+ * pared: no puede arrancar fuera, ni sobresalir del largo o de la altura. Así
+ * el render nunca dibuja un panel que se salga de la pared.
+ */
+export function clampRegion(
+  region: TileRegion,
+  length: number,
+  wallHeight: number,
+): RegionRect {
+  const start = clamp(region.offset, 0, length);
+  const bottom = clamp(region.bottom, 0, wallHeight);
+  return {
+    start,
+    width: clamp(region.width, 0, length - start),
+    bottom,
+    height: clamp(region.height, 0, wallHeight - bottom),
+  };
 }
 
 /**

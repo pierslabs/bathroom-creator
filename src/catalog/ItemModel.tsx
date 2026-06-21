@@ -15,6 +15,7 @@ import type { Item } from "../domain/types";
 import { useDesignStore } from "../state/designStore";
 import { TileMaterial } from "../scene/TileMaterial";
 import { kindOf, naturalSize } from "./catalog";
+import { cabinetLayout } from "./cabinet";
 import { ACCENT } from "../scene/theme";
 
 const BASE = "#cdd6df";
@@ -132,13 +133,70 @@ export function ItemModel({
       );
     }
 
-    case "cabinet":
-    default:
+    case "mirror": {
+      // Espejo plano colgable (subir "Altura suelo" en el panel). Cuadrado =
+      // panel fino; redondo = disco (cilindro corto girado para mirar al frente).
+      // Look reflectante simple: metálico claro (sin reflexión real, es caro).
+      const nat = naturalSize(modelRef);
+      const { width: W, height: H, depth: D } = nat;
+      const round = item.mirrorShape === "round";
+      const r = Math.min(W, H) / 2;
       return (
-        <mesh position={[0, 0.45, 0]} castShadow>
-          <boxGeometry args={[0.8, 0.9, 0.4]} />
-          <meshStandardMaterial color={color} />
-        </mesh>
+        <group>
+          <mesh
+            position={[0, H / 2, 0]}
+            rotation={round ? [Math.PI / 2, 0, 0] : [0, 0, 0]}
+            castShadow
+          >
+            {round ? (
+              <cylinderGeometry args={[r, r, D, 32]} />
+            ) : (
+              <boxGeometry args={[W, H, D]} />
+            )}
+            <meshStandardMaterial
+              color={selected ? SELECTED : "#aebfc9"}
+              metalness={0.9}
+              roughness={0.08}
+            />
+          </mesh>
+        </group>
       );
+    }
+
+    case "cabinet":
+    default: {
+      // Mueble como CARCASA hueca, no como bloque macizo: laterales + techo +
+      // base + fondo, y el interior con baldas. Frente abierto para ver el hueco.
+      // Se dibuja en tamaño natural; el <group> padre escala a item.size.
+      const nat = naturalSize(modelRef);
+      const { width: W, height: H, depth: D } = nat;
+      const layout = cabinetLayout(item.size, nat);
+      const p = layout.panel;
+      // Panel = caja con posición + tamaño; se mapean todas con el mismo material.
+      const panels: { pos: [number, number, number]; size: [number, number, number] }[] = [
+        { pos: [-(W - p) / 2, H / 2, 0], size: [p, H, D] }, // lateral izq
+        { pos: [(W - p) / 2, H / 2, 0], size: [p, H, D] }, // lateral der
+        { pos: [0, p / 2, 0], size: [W, p, D] }, // base
+        { pos: [0, H - p / 2, 0], size: [W, p, D] }, // techo
+        { pos: [0, H / 2, -(D - p) / 2], size: [W, H, p] }, // fondo
+      ];
+      if (layout.hasDivider) {
+        panels.push({ pos: [0, H / 2, p / 2], size: [p, H - 2 * p, D - p] });
+      }
+      // Baldas interiores: ancho/fondo útiles (descontando laterales y fondo).
+      for (const y of layout.shelfYs) {
+        panels.push({ pos: [0, y, p / 2], size: [W - 2 * p, p, D - p] });
+      }
+      return (
+        <group>
+          {panels.map((b, i) => (
+            <mesh key={i} position={b.pos} castShadow receiveShadow>
+              <boxGeometry args={b.size} />
+              <meshStandardMaterial color={color} />
+            </mesh>
+          ))}
+        </group>
+      );
+    }
   }
 }

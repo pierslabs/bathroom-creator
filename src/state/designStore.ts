@@ -11,9 +11,11 @@ import type {
   DrainPosition,
   Item,
   Material,
+  MirrorShape,
   Opening,
   Point2,
   Size,
+  TileRegion,
   Wall,
 } from "../domain/types";
 import { naturalSize } from "../catalog/catalog";
@@ -76,6 +78,12 @@ interface DesignState {
   /** ¿Está el piso seleccionado? Mutuamente excluyente con pared e item. */
   floorSelected: boolean;
   selectFloor: () => void;
+  /**
+   * Zona de revestimiento activa (pared + índice), o null. Es el destino fino
+   * de la textura: con una zona activa, el azulejo va a la zona, no a la pared.
+   */
+  selectedRegion: { wall: number; index: number } | null;
+  selectRegion: (sel: { wall: number; index: number } | null) => void;
 
   // --- Contorno / paredes ---
   /** Mueve una esquina del polígono (la geometría de paredes y piso se deriva sola). */
@@ -93,10 +101,20 @@ interface DesignState {
     patch: Partial<Opening>,
   ) => void;
   removeOpening: (wallIndex: number, openingIndex: number) => void;
+  /** Zonas de revestimiento parcial de una pared. */
+  addTileRegion: (wallIndex: number, region: TileRegion) => void;
+  updateTileRegion: (
+    wallIndex: number,
+    regionIndex: number,
+    patch: Partial<TileRegion>,
+  ) => void;
+  removeTileRegion: (wallIndex: number, regionIndex: number) => void;
 
   // --- Items (catálogo glTF) ---
   addItem: (modelRef: string, position?: Item["position"]) => string;
   moveItem: (id: string, position: Item["position"]) => void;
+  /** Altura de la base del item sobre el suelo, en metros. >0 = colgado a pared. */
+  setItemElevation: (id: string, y: number) => void;
   rotateItem: (id: string, rotationY: number) => void;
   resizeItem: (id: string, size: Size) => void;
   /** Solo mampara: altura del murete macizo inferior, en metros. */
@@ -105,6 +123,8 @@ interface DesignState {
   setItemBaseMaterial: (id: string, materialId: string | null) => void;
   /** Solo plato de ducha: posición del desagüe. */
   setItemDrain: (id: string, position: DrainPosition) => void;
+  /** Solo espejo: forma (cuadrado/redondo). */
+  setItemMirrorShape: (id: string, shape: MirrorShape) => void;
   removeItem: (id: string) => void;
 
   // --- Materiales (fotos de azulejos) ---
@@ -125,14 +145,39 @@ export const useDesignStore = create<DesignState>((set, get) => ({
   selectedItemId: null,
   selectedWall: null,
   floorSelected: false,
+  selectedRegion: null,
 
   // Selección mutuamente excluyente: elegir una superficie/objeto limpia el resto.
   selectItem: (id) =>
-    set({ selectedItemId: id, selectedWall: null, floorSelected: false }),
+    set({
+      selectedItemId: id,
+      selectedWall: null,
+      floorSelected: false,
+      selectedRegion: null,
+    }),
   selectWall: (index) =>
-    set({ selectedWall: index, selectedItemId: null, floorSelected: false }),
+    set({
+      selectedWall: index,
+      selectedItemId: null,
+      floorSelected: false,
+      selectedRegion: null,
+    }),
   selectFloor: () =>
-    set({ floorSelected: true, selectedItemId: null, selectedWall: null }),
+    set({
+      floorSelected: true,
+      selectedItemId: null,
+      selectedWall: null,
+      selectedRegion: null,
+    }),
+  // La zona vive DENTRO de una pared: seleccionarla mantiene su pared activa
+  // (para ver su panel) pero marca la zona como destino de la textura.
+  selectRegion: (sel) =>
+    set({
+      selectedRegion: sel,
+      selectedWall: sel ? sel.wall : null,
+      selectedItemId: null,
+      floorSelected: false,
+    }),
 
   // --- Contorno / paredes ---
   movePoint: (index, p) =>
@@ -177,6 +222,39 @@ export const useDesignStore = create<DesignState>((set, get) => ({
       }),
     })),
 
+  addTileRegion: (wallIndex, region) =>
+    set((s) => ({
+      design: patchWall(s.design, wallIndex, {
+        tileRegions: [
+          ...(s.design.walls[wallIndex].tileRegions ?? []),
+          region,
+        ],
+      }),
+    })),
+
+  updateTileRegion: (wallIndex, regionIndex, patch) =>
+    set((s) => ({
+      design: patchWall(s.design, wallIndex, {
+        tileRegions: (s.design.walls[wallIndex].tileRegions ?? []).map((r, i) =>
+          i === regionIndex ? { ...r, ...patch } : r,
+        ),
+      }),
+    })),
+
+  removeTileRegion: (wallIndex, regionIndex) =>
+    set((s) => ({
+      design: patchWall(s.design, wallIndex, {
+        tileRegions: (s.design.walls[wallIndex].tileRegions ?? []).filter(
+          (_, i) => i !== regionIndex,
+        ),
+      }),
+      selectedRegion:
+        s.selectedRegion?.wall === wallIndex &&
+        s.selectedRegion.index === regionIndex
+          ? null
+          : s.selectedRegion,
+    })),
+
   // --- Items ---
   addItem: (modelRef, position = { x: 0, y: 0, z: 0 }) => {
     const id = nextItemId();
@@ -194,6 +272,16 @@ export const useDesignStore = create<DesignState>((set, get) => ({
   moveItem: (id, position) =>
     set((s) => ({ design: patchItem(s.design, id, { position }) })),
 
+  setItemElevation: (id, y) =>
+    set((s) => ({
+      design: {
+        ...s.design,
+        items: s.design.items.map((it) =>
+          it.id === id ? { ...it, position: { ...it.position, y } } : it,
+        ),
+      },
+    })),
+
   rotateItem: (id, rotationY) =>
     set((s) => ({ design: patchItem(s.design, id, { rotationY }) })),
 
@@ -210,6 +298,9 @@ export const useDesignStore = create<DesignState>((set, get) => ({
 
   setItemDrain: (id, drainPosition) =>
     set((s) => ({ design: patchItem(s.design, id, { drainPosition }) })),
+
+  setItemMirrorShape: (id, mirrorShape) =>
+    set((s) => ({ design: patchItem(s.design, id, { mirrorShape }) })),
 
   removeItem: (id) =>
     set((s) => ({
@@ -243,9 +334,12 @@ export const useDesignStore = create<DesignState>((set, get) => ({
           // Limpia las referencias huérfanas (piso, paredes, muretes).
           floorMaterialId:
             s.design.floorMaterialId === id ? null : s.design.floorMaterialId,
-          walls: s.design.walls.map((w) =>
-            w.materialId === id ? { ...w, materialId: null } : w,
-          ),
+          walls: s.design.walls.map((w) => {
+            const materialId = w.materialId === id ? null : w.materialId;
+            // Las zonas que usaban este azulejo quedan huérfanas: se quitan.
+            const tileRegions = w.tileRegions?.filter((r) => r.materialId !== id);
+            return { ...w, materialId, tileRegions };
+          }),
           items: s.design.items.map((it) =>
             it.baseMaterialId === id ? { ...it, baseMaterialId: undefined } : it,
           ),
@@ -264,6 +358,7 @@ export const useDesignStore = create<DesignState>((set, get) => ({
       selectedItemId: null,
       selectedWall: null,
       floorSelected: false,
+      selectedRegion: null,
     }),
 }));
 

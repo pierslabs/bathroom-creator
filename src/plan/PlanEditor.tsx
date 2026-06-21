@@ -30,6 +30,8 @@ export function PlanEditor() {
   const selectItem = useDesignStore((s) => s.selectItem);
   const selectedWall = useDesignStore((s) => s.selectedWall);
   const selectWall = useDesignStore((s) => s.selectWall);
+  const selectedRegion = useDesignStore((s) => s.selectedRegion);
+  const selectRegion = useDesignStore((s) => s.selectRegion);
 
   const segments = useMemo(() => wallSegments(design), [design]);
 
@@ -126,6 +128,45 @@ export function PlanEditor() {
                 x2={b.x}
                 y2={b.y}
                 className={op.sill > 0 ? "plan-window" : "plan-door"}
+              />
+            );
+          });
+        })}
+
+        {/* Zonas de revestimiento: tramo NARANJA sobre la pared. Así sabés en
+            qué pared y dónde cae la zona sin depender de la cámara 3D. La
+            activa va resaltada; clickearla la selecciona. */}
+        {segments.map((seg) => {
+          const len = wallLength(seg);
+          if (len === 0) return null;
+          const ux = (seg.end.x - seg.start.x) / len;
+          const uy = (seg.end.y - seg.start.y) / len;
+          return (seg.tileRegions ?? []).map((r, ri) => {
+            const start = Math.max(0, Math.min(r.offset, len));
+            const end = Math.max(0, Math.min(r.offset + r.width, len));
+            const a = toPx(transform, {
+              x: seg.start.x + ux * start,
+              y: seg.start.y + uy * start,
+            });
+            const b = toPx(transform, {
+              x: seg.start.x + ux * end,
+              y: seg.start.y + uy * end,
+            });
+            const active =
+              selectedRegion?.wall === seg.index &&
+              selectedRegion.index === ri;
+            return (
+              <line
+                key={`region-${seg.index}-${ri}`}
+                x1={a.x}
+                y1={a.y}
+                x2={b.x}
+                y2={b.y}
+                className={`plan-region ${active ? "is-active" : ""}`}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  selectRegion({ wall: seg.index, index: ri });
+                }}
               />
             );
           });

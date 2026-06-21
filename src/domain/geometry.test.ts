@@ -7,6 +7,7 @@ import {
   wallLength,
   wallParts,
   miterCorners,
+  clampRegion,
 } from "./geometry";
 
 /**
@@ -63,6 +64,16 @@ describe("wallSegments", () => {
     design.walls[3].height = 1.1; // el murito
     const segs = wallSegments(design);
     expect(segs[3].height).toBe(1.1);
+  });
+
+  it("propaga las zonas de revestimiento al segmento (si no, no se dibujan)", () => {
+    const design = makeLShapedDesign();
+    design.walls[2].tileRegions = [
+      { offset: 0.2, width: 0.5, bottom: 0, height: 1, materialId: "m1" },
+    ];
+    const segs = wallSegments(design);
+    expect(segs[2].tileRegions).toHaveLength(1);
+    expect(segs[2].tileRegions?.[0].materialId).toBe("m1");
   });
 });
 
@@ -142,6 +153,40 @@ describe("miterCorners", () => {
     expect(corners[1].left.x).toBeCloseTo(1);
     expect(corners[1].left.y).toBeCloseTo(0.1);
     expect(corners[1].right.y).toBeCloseTo(-0.1);
+  });
+});
+
+describe("clampRegion", () => {
+  const region = (p: Partial<Parameters<typeof clampRegion>[0]>) => ({
+    offset: 0,
+    width: 1,
+    bottom: 0,
+    height: 1,
+    materialId: "m",
+    ...p,
+  });
+
+  it("una zona que entra entera no se modifica", () => {
+    const r = clampRegion(region({ offset: 1, width: 1, bottom: 0.5, height: 1 }), 4, 2.4);
+    expect(r).toEqual({ start: 1, width: 1, bottom: 0.5, height: 1 });
+  });
+
+  it("recorta el ancho para que no sobresalga del largo de la pared", () => {
+    const r = clampRegion(region({ offset: 3, width: 2 }), 4, 2.4);
+    expect(r.start).toBe(3);
+    expect(r.width).toBe(1); // 4 - 3
+  });
+
+  it("recorta el alto para que no pase del techo", () => {
+    const r = clampRegion(region({ bottom: 2, height: 1 }), 4, 2.4);
+    expect(r.bottom).toBe(2);
+    expect(r.height).toBeCloseTo(0.4); // 2.4 - 2
+  });
+
+  it("offset negativo o fuera de rango se pega al límite", () => {
+    const r = clampRegion(region({ offset: -1, width: 5 }), 4, 2.4);
+    expect(r.start).toBe(0);
+    expect(r.width).toBe(4);
   });
 });
 

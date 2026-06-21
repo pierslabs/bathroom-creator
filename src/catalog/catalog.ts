@@ -13,7 +13,8 @@ export type ItemKind =
   | "sink"
   | "shower"
   | "shower_tray"
-  | "cabinet";
+  | "cabinet"
+  | "mirror";
 
 export interface CatalogEntry {
   /** Identificador del modelo. Hoy = kind; mañana = ruta del .glb. */
@@ -58,6 +59,12 @@ export const CATALOG: CatalogEntry[] = [
     label: "Mueble",
     kind: "cabinet",
     natural: { width: 0.8, height: 0.9, depth: 0.4 },
+  },
+  {
+    modelRef: "mirror",
+    label: "Espejo",
+    kind: "mirror",
+    natural: { width: 0.6, height: 0.8, depth: 0.03 },
   },
 ];
 
