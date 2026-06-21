@@ -21,6 +21,10 @@ export function BathroomScene() {
       shadows
       // flat = NoToneMapping: colores fieles a la foto (sin filtro ACES).
       flat
+      // demand = solo redibuja cuando algo cambia (cámara, edición, drag). En
+      // reposo no consume GPU: sin esto, R3F renderiza a 60fps eternamente y
+      // mantiene la GPU al palo (ventiladores) con la escena quieta.
+      frameloop="demand"
       camera={{ position: [5, 5, 5], fov: 50 }}
       // Click en el vacío (no sobre un item) -> deselecciona.
       onPointerMissed={() => selectItem(null)}
@@ -35,7 +39,7 @@ export function BathroomScene() {
         position={[6, 10, 4]}
         intensity={0.5}
         castShadow
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={[1024, 1024]}
       />
 
       <Suspense fallback={null}>
