@@ -122,6 +122,82 @@ export function wallParts(
   return parts;
 }
 
+/** Las dos esquinas (lados opuestos del muro) que confluyen en un vértice. */
+export interface Corner {
+  /** Lado izquierdo respecto a la dirección de recorrido del contorno. */
+  left: Point2;
+  /** Lado derecho. */
+  right: Point2;
+}
+
+/** Intersección de dos rectas P+t·D. Devuelve null si son (casi) paralelas. */
+function lineIntersect(
+  p1: Point2,
+  d1: Point2,
+  p2: Point2,
+  d2: Point2,
+): Point2 | null {
+  const denom = d1.x * d2.y - d1.y * d2.x;
+  if (Math.abs(denom) < 1e-9) return null; // paralelas / colineales
+  const t = ((p2.x - p1.x) * d2.y - (p2.y - p1.y) * d2.x) / denom;
+  return { x: p1.x + t * d1.x, y: p1.y + t * d1.y };
+}
+
+/**
+ * Esquinas con inglete (mitre) para cada vértice del contorno.
+ *
+ * Cada pared es una franja de grosor `thickness[i]` centrada en su arista. En un
+ * vértice confluyen dos paredes; sus caras NO se topan a 90°: hay que cortarlas
+ * en la bisectriz. Calculamos cada esquina como la intersección de las líneas de
+ * borde (la arista desplazada ±grosor/2 perpendicular) de las dos paredes vecinas.
+ * Así las esquinas cierran perfecto para cualquier ángulo y grosores distintos.
+ *
+ * "left"/"right" son consistentes a lo largo del recorrido: forman el contorno
+ * interior y el exterior del anillo de muros (cuál es cuál depende de la
+ * orientación del polígono, pero da igual para construir la geometría).
+ */
+export function miterCorners(
+  points: Point2[],
+  thickness: number[],
+): Corner[] {
+  const n = points.length;
+  // Dirección unitaria y normal izquierda de cada pared k (de points[k] a k+1).
+  const dir: Point2[] = [];
+  const normL: Point2[] = [];
+  for (let k = 0; k < n; k++) {
+    const a = points[k];
+    const b = points[(k + 1) % n];
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const d = { x: (b.x - a.x) / len, y: (b.y - a.y) / len };
+    dir.push(d);
+    normL.push({ x: -d.y, y: d.x }); // rotar 90° CCW
+  }
+
+  return points.map((v, i) => {
+    const a = (i - 1 + n) % n; // pared que llega al vértice
+    const b = i; // pared que sale del vértice
+    const ha = thickness[a] / 2;
+    const hb = thickness[b] / 2;
+
+    const side = (sign: 1 | -1): Point2 => {
+      // Línea de borde de cada pared, desplazada `sign·grosor/2` perpendicular.
+      const pa = {
+        x: points[a].x + sign * normL[a].x * ha,
+        y: points[a].y + sign * normL[a].y * ha,
+      };
+      const pb = {
+        x: v.x + sign * normL[b].x * hb,
+        y: v.y + sign * normL[b].y * hb,
+      };
+      const hit = lineIntersect(pa, dir[a], pb, dir[b]);
+      // Colineales (ángulo llano): no hay codo, vale el offset en el vértice.
+      return hit ?? pb;
+    };
+
+    return { left: side(1), right: side(-1) };
+  });
+}
+
 /**
  * Área con signo (fórmula del cordón de zapato / shoelace).
  * El signo indica la orientación: negativa = horario, positiva = antihorario.

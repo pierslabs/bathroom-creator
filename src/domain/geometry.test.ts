@@ -6,6 +6,7 @@ import {
   floorArea,
   wallLength,
   wallParts,
+  miterCorners,
 } from "./geometry";
 
 /**
@@ -86,6 +87,61 @@ describe("wallLength", () => {
     const segs = wallSegments(design);
     expect(wallLength(segs[0])).toBeCloseTo(2); // (0,0)->(2,0)
     expect(wallLength(segs[4])).toBeCloseTo(1); // (1,1)->(0,1)
+  });
+});
+
+describe("miterCorners", () => {
+  // Cuadrado 2x2 antihorario, muros de 0.2 (offset 0.1 a cada lado del eje).
+  const square = [
+    { x: 0, y: 0 },
+    { x: 2, y: 0 },
+    { x: 2, y: 2 },
+    { x: 0, y: 2 },
+  ];
+
+  it("resuelve la esquina recta como inglete a 45° (interior y exterior)", () => {
+    const corners = miterCorners(square, [0.2, 0.2, 0.2, 0.2]);
+    // Vértice (2,0): pared a (eje x) y pared b (eje y) de grosor 0.2.
+    // Lado izquierdo (interior, recorrido CCW) = (1.9, 0.1);
+    // lado derecho (exterior) = (2.1, -0.1).
+    expect(corners[1].left.x).toBeCloseTo(1.9);
+    expect(corners[1].left.y).toBeCloseTo(0.1);
+    expect(corners[1].right.x).toBeCloseTo(2.1);
+    expect(corners[1].right.y).toBeCloseTo(-0.1);
+  });
+
+  it("el contorno interior cierra un cuadrado de 1.8 y el exterior de 2.2", () => {
+    const corners = miterCorners(square, [0.2, 0.2, 0.2, 0.2]);
+    const inner = corners.map((c) => c.left);
+    const outer = corners.map((c) => c.right);
+    expect(inner[0]).toMatchObject({ x: expect.closeTo(0.1), y: expect.closeTo(0.1) });
+    expect(inner[2]).toMatchObject({ x: expect.closeTo(1.9), y: expect.closeTo(1.9) });
+    expect(outer[0]).toMatchObject({ x: expect.closeTo(-0.1), y: expect.closeTo(-0.1) });
+    expect(outer[2]).toMatchObject({ x: expect.closeTo(2.1), y: expect.closeTo(2.1) });
+  });
+
+  it("respeta grosores distintos en cada pared al cortar el inglete", () => {
+    // Pared 0 (eje x) grosor 0.2; pared 1 (eje y) grosor 0.4.
+    const corners = miterCorners(square, [0.2, 0.4, 0.2, 0.2]);
+    // En (2,0): el offset interior usa la pared a en y (0.1) y la pared b en x (0.2).
+    expect(corners[1].left.x).toBeCloseTo(1.8); // 2 - 0.4/2
+    expect(corners[1].left.y).toBeCloseTo(0.1); // 0 + 0.2/2
+    expect(corners[1].right.x).toBeCloseTo(2.2);
+    expect(corners[1].right.y).toBeCloseTo(-0.1);
+  });
+
+  it("paredes colineales: cae al offset perpendicular (sin intersección)", () => {
+    // Tres puntos en línea recta sobre el eje x; el del medio no dobla.
+    const collinear = [
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 2, y: 0 },
+    ];
+    const corners = miterCorners(collinear, [0.2, 0.2, 0.2]);
+    // En (1,0) no hay codo: la esquina es el simple offset ±0.1 en y.
+    expect(corners[1].left.x).toBeCloseTo(1);
+    expect(corners[1].left.y).toBeCloseTo(0.1);
+    expect(corners[1].right.y).toBeCloseTo(-0.1);
   });
 });
 

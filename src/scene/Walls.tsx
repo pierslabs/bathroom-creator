@@ -11,11 +11,20 @@
  * peleaba con el control manual.
  */
 import { useMemo } from "react";
+import * as THREE from "three";
 import type { ThreeEvent } from "@react-three/fiber";
 import { useDesignStore } from "../state/designStore";
-import { wallSegments, wallParts, type WallSegment } from "../domain/geometry";
+import {
+  wallSegments,
+  wallParts,
+  miterCorners,
+  type WallSegment,
+  type Corner,
+} from "../domain/geometry";
+import type { Point2 } from "../domain/types";
 import { TileMaterial } from "./TileMaterial";
 import { toWorldXZ } from "./coords";
+import { buildWallPrism } from "./wallGeometry";
 import { ACCENT } from "./theme";
 
 const FRAME_COLOR = "#f3efe6";
@@ -92,28 +101,87 @@ function Frames({
   );
 }
 
-function Wall({ seg, selected }: { seg: WallSegment; selected: boolean }) {
+function Wall({
+  seg,
+  selected,
+  cornerStart,
+  cornerEnd,
+}: {
+  seg: WallSegment;
+  selected: boolean;
+  cornerStart: Corner;
+  cornerEnd: Corner;
+}) {
   const materials = useDesignStore((s) => s.design.materials);
   const selectWall = useDesignStore((s) => s.selectWall);
 
-  // Mapeo dominio -> mundo (z = -y), centralizado en coords.ts.
+  // Mapeo dominio -> mundo (z = -y), centralizado en coords.ts. Para los Frames
+  // (marcos de huecos) seguimos posicionando en mundo con eje + ángulo.
   const [ax, az] = toWorldXZ(seg.start);
   const [bx, bz] = toWorldXZ(seg.end);
-
   const dx = bx - ax;
   const dz = bz - az;
-  const length = Math.hypot(dx, dz);
   const angleY = -Math.atan2(dz, dx);
-  // Vector unitario a lo largo de la pared, para ubicar cada tramo.
-  const ux = length ? dx / length : 1;
-  const uz = length ? dz / length : 0;
+  const lengthW = Math.hypot(dx, dz);
+  const ux = lengthW ? dx / lengthW : 1;
+  const uz = lengthW ? dz / lengthW : 0;
 
   const material = seg.materialId ? materials[seg.materialId] : null;
-  // La pared con huecos se descompone en tramos macizos.
-  const parts = wallParts(length, seg.height, seg.openings);
-
-  // Transparencia manual: solo si la marcaste.
   const fade = seg.transparent === true;
+
+  // Geometría con INGLETE. Calculamos los tramos y su planta en coordenadas de
+  // dominio (x,y), aplicando las esquinas de inglete en los extremos de la
+  // pared y un offset perpendicular recto en los cortes internos (huecos).
+  const geoms = useMemo(() => {
+    const len = Math.hypot(seg.end.x - seg.start.x, seg.end.y - seg.start.y);
+    const dirx = len ? (seg.end.x - seg.start.x) / len : 1;
+    const diry = len ? (seg.end.y - seg.start.y) / len : 0;
+    const nx = -diry; // normal izquierda (rotar dir 90° CCW)
+    const ny = dirx;
+    const half = seg.thickness / 2;
+
+    // left/right de la franja en una posición local `s` (offset recto).
+    const straight = (s: number): Corner => {
+      const cx = seg.start.x + dirx * s;
+      const cy = seg.start.y + diry * s;
+      return {
+        left: { x: cx + nx * half, y: cy + ny * half },
+        right: { x: cx - nx * half, y: cy - ny * half },
+      };
+    };
+    // En los extremos de la pared usamos el inglete; en el medio, recto.
+    const at = (s: number): Corner => {
+      if (Math.abs(s) < 1e-9) return cornerStart;
+      if (Math.abs(s - len) < 1e-9) return cornerEnd;
+      return straight(s);
+    };
+    const w = (p: Point2): [number, number] => toWorldXZ(p);
+
+    const parts = wallParts(len, seg.height, seg.openings);
+    return parts.map((part) => {
+      const c0 = at(part.start);
+      const c1 = at(part.start + part.length);
+      return buildWallPrism(
+        w(c0.left),
+        w(c0.right),
+        w(c1.left),
+        w(c1.right),
+        part.bottom,
+        part.bottom + part.height,
+      );
+    });
+  }, [seg, cornerStart, cornerEnd]);
+
+  // parts en paralelo a geoms (mismo orden) para mapear material/repeat.
+  const parts = useMemo(
+    () =>
+      wallParts(
+        Math.hypot(seg.end.x - seg.start.x, seg.end.y - seg.start.y),
+        seg.height,
+        seg.openings,
+      ),
+    [seg],
+  );
 
   return (
     // Grupo clickeable: elegir la pared directamente en el 3D (no solo en el plano).
@@ -134,23 +202,17 @@ function Wall({ seg, selected }: { seg: WallSegment; selected: boolean }) {
           fade={fade}
         />
       )}
-      {parts.map((part, i) => {
-        const s = part.start + part.length / 2; // centro del tramo a lo largo
+      {geoms.map((geom, i) => {
+        const part = parts[i];
         return (
-          <mesh
-            key={i}
-            position={[ax + ux * s, part.bottom + part.height / 2, az + uz * s]}
-            rotation={[0, angleY, 0]}
-            castShadow
-            receiveShadow
-          >
-            <boxGeometry args={[part.length, part.height, seg.thickness]} />
+          <mesh key={i} geometry={geom} castShadow receiveShadow>
             {material ? (
               <TileMaterial
                 src={material.src}
                 repeatX={part.length / material.tileWidth}
                 repeatY={part.height / material.tileHeight}
                 highlight={selected && !fade}
+                doubleSide
                 transparent={fade}
                 opacity={fade ? FADE_OPACITY : 1}
               />
@@ -162,6 +224,7 @@ function Wall({ seg, selected }: { seg: WallSegment; selected: boolean }) {
                 color={selected && !fade ? "#d8c4f0" : "#e8e4dc"}
                 emissive={selected && !fade ? ACCENT : "#000000"}
                 emissiveIntensity={selected && !fade ? 0.25 : 0}
+                side={THREE.DoubleSide}
                 transparent={fade}
                 opacity={fade ? FADE_OPACITY : 1}
                 depthWrite={!fade}
@@ -178,11 +241,28 @@ export function Walls() {
   const design = useDesignStore((s) => s.design);
   const selectedWall = useDesignStore((s) => s.selectedWall);
   const segments = useMemo(() => wallSegments(design), [design]);
+  // Esquinas con inglete: una por vértice del contorno. La esquina `i` es
+  // compartida por la pared que LLEGA (i-1) y la que SALE (i) de ese vértice.
+  const corners = useMemo(
+    () =>
+      miterCorners(
+        design.points,
+        design.walls.map((w) => w.thickness),
+      ),
+    [design.points, design.walls],
+  );
+  const n = corners.length;
 
   return (
     <>
       {segments.map((seg) => (
-        <Wall key={seg.index} seg={seg} selected={selectedWall === seg.index} />
+        <Wall
+          key={seg.index}
+          seg={seg}
+          selected={selectedWall === seg.index}
+          cornerStart={corners[seg.index]}
+          cornerEnd={corners[(seg.index + 1) % n]}
+        />
       ))}
     </>
   );
