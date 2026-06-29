@@ -1,63 +1,46 @@
 import { describe, it, expect } from "vitest";
-import { shelfCount, shelfPositions, cabinetLayout } from "./cabinet";
-import type { Size } from "../domain/types";
+import { drawerLayout, vanityHeight, VANITY, DRAWER_RATIOS } from "./cabinet";
 
-describe("shelfCount", () => {
-  it("una balda cada ~gap metros de alto real", () => {
-    expect(shelfCount(0.9, 0.35)).toBe(2); // round(2.57)-1
-    expect(shelfCount(1.8, 0.35)).toBe(4); // round(5.14)-1
-  });
-
-  it("nunca negativo: un mueble muy bajo no tiene baldas", () => {
-    expect(shelfCount(0.2, 0.35)).toBe(0);
-    expect(shelfCount(0, 0.35)).toBe(0);
-  });
-
-  it("gap inválido no rompe", () => {
-    expect(shelfCount(1, 0)).toBe(0);
+describe("vanityHeight", () => {
+  it("suma patas + cuerpo + encimera/lavabo", () => {
+    expect(vanityHeight()).toBeCloseTo(0.08 + 0.75 + 0.05);
+    expect(vanityHeight({ ...VANITY, legHeight: 0.1 })).toBeCloseTo(
+      0.1 + 0.75 + 0.05,
+    );
   });
 });
 
-describe("shelfPositions", () => {
-  it("reparte las baldas uniformemente dentro del hueco interior", () => {
-    // natural 0.9, panel 0.02 -> interior [0.02, 0.88], span 0.86.
-    // 2 baldas -> en 1/3 y 2/3 del span.
-    const ys = shelfPositions(2, 0.9, 0.02);
-    expect(ys).toHaveLength(2);
-    expect(ys[0]).toBeCloseTo(0.02 + 0.86 / 3);
-    expect(ys[1]).toBeCloseTo(0.02 + (2 * 0.86) / 3);
+describe("drawerLayout", () => {
+  it("reparte los cajones proporcionalmente y la suma == bodyHeight", () => {
+    const drawers = drawerLayout(0.75, DRAWER_RATIOS);
+    expect(drawers).toHaveLength(3);
+    const sum = drawers.reduce((a, d) => a + d.height, 0);
+    expect(sum).toBeCloseTo(0.75);
+    // 27/75 * 0.75 = 0.27, 24/75 * 0.75 = 0.24.
+    expect(drawers[0].height).toBeCloseTo(0.27);
+    expect(drawers[1].height).toBeCloseTo(0.24);
+    expect(drawers[2].height).toBeCloseTo(0.24);
   });
 
-  it("sin baldas o sin hueco devuelve vacío", () => {
-    expect(shelfPositions(0, 0.9, 0.02)).toEqual([]);
-    expect(shelfPositions(2, 0.03, 0.02)).toEqual([]); // panel se come el alto
-  });
-});
-
-describe("cabinetLayout", () => {
-  const natural: Size = { width: 0.8, height: 0.9, depth: 0.4 };
-
-  it("mueble estándar: 2 baldas, sin divisor (ancho < 0.9)", () => {
-    const real: Size = { width: 0.8, height: 0.9, depth: 0.4 };
-    const layout = cabinetLayout(real, natural);
-    expect(layout.shelfYs).toHaveLength(2);
-    expect(layout.hasDivider).toBe(false);
-    expect(layout.panel).toBeCloseTo(0.02);
+  it("apila de arriba hacia abajo sin solaparse", () => {
+    const drawers = drawerLayout(0.75, DRAWER_RATIOS);
+    // El primero (arriba) tiene el centro más alto.
+    expect(drawers[0].y).toBeGreaterThan(drawers[1].y);
+    expect(drawers[1].y).toBeGreaterThan(drawers[2].y);
+    // Borde superior del primero == bodyHeight; inferior del último == 0.
+    expect(drawers[0].y + drawers[0].height / 2).toBeCloseTo(0.75);
+    expect(drawers[2].y - drawers[2].height / 2).toBeCloseTo(0);
   });
 
-  it("mueble ancho: agrega divisor vertical", () => {
-    const real: Size = { width: 1.2, height: 0.9, depth: 0.4 };
-    expect(cabinetLayout(real, natural).hasDivider).toBe(true);
+  it("ratios normalizados o no, dan el mismo reparto", () => {
+    const a = drawerLayout(0.75, [27, 24, 24]);
+    const b = drawerLayout(0.75, [0.27, 0.24, 0.24]);
+    a.forEach((d, i) => expect(d.height).toBeCloseTo(b[i].height));
   });
 
-  it("mueble alto: más baldas (cuenta por tamaño real, posiciona en natural)", () => {
-    const real: Size = { width: 0.8, height: 1.8, depth: 0.4 };
-    const layout = cabinetLayout(real, natural);
-    expect(layout.shelfYs).toHaveLength(4);
-    // Posiciones dentro del rango natural [0.02, 0.88], no del real.
-    for (const y of layout.shelfYs) {
-      expect(y).toBeGreaterThan(0.02);
-      expect(y).toBeLessThan(0.88);
-    }
+  it("entrada inválida devuelve vacío", () => {
+    expect(drawerLayout(0, DRAWER_RATIOS)).toEqual([]);
+    expect(drawerLayout(0.75, [])).toEqual([]);
+    expect(drawerLayout(0.75, [0, 0])).toEqual([]);
   });
 });

@@ -104,6 +104,10 @@ export interface Item {
   drainPosition?: DrainPosition;
   /** Solo espejo: forma (default "square"). */
   mirrorShape?: MirrorShape;
+  /** Solo mueble/estantería: textura de madera (Material) aplicada, o ausente. */
+  materialId?: string;
+  /** Solo estantería: dibujar puertas que tapan el frente (default false). */
+  doors?: boolean;
 }
 
 /**

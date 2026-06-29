@@ -90,6 +90,8 @@ interface DesignState {
   movePoint: (index: number, p: Point2) => void;
   /** Cambia la altura de una pared. Bajála para crear un murito. */
   setWallHeight: (index: number, height: number) => void;
+  /** Cambia el grosor (ancho) de un tabique. El inglete de esquinas se recalcula solo. */
+  setWallThickness: (index: number, thickness: number) => void;
   setWallMaterial: (index: number, materialId: string | null) => void;
   /** Fuerza/quita la transparencia manual de una pared. */
   setWallTransparent: (index: number, value: boolean) => void;
@@ -125,6 +127,10 @@ interface DesignState {
   setItemDrain: (id: string, position: DrainPosition) => void;
   /** Solo espejo: forma (cuadrado/redondo). */
   setItemMirrorShape: (id: string, shape: MirrorShape) => void;
+  /** Solo mueble/estantería: textura de madera (Material) aplicada. */
+  setItemMaterial: (id: string, materialId: string | null) => void;
+  /** Solo estantería: mostrar/ocultar puertas. */
+  setItemDoors: (id: string, doors: boolean) => void;
   removeItem: (id: string) => void;
 
   // --- Materiales (fotos de azulejos) ---
@@ -190,6 +196,9 @@ export const useDesignStore = create<DesignState>((set, get) => ({
 
   setWallHeight: (index, height) =>
     set((s) => ({ design: patchWall(s.design, index, { height }) })),
+
+  setWallThickness: (index, thickness) =>
+    set((s) => ({ design: patchWall(s.design, index, { thickness }) })),
 
   setWallMaterial: (index, materialId) =>
     set((s) => ({ design: patchWall(s.design, index, { materialId }) })),
@@ -302,6 +311,14 @@ export const useDesignStore = create<DesignState>((set, get) => ({
   setItemMirrorShape: (id, mirrorShape) =>
     set((s) => ({ design: patchItem(s.design, id, { mirrorShape }) })),
 
+  setItemMaterial: (id, materialId) =>
+    set((s) => ({
+      design: patchItem(s.design, id, { materialId: materialId ?? undefined }),
+    })),
+
+  setItemDoors: (id, doors) =>
+    set((s) => ({ design: patchItem(s.design, id, { doors }) })),
+
   removeItem: (id) =>
     set((s) => ({
       design: {
@@ -340,9 +357,12 @@ export const useDesignStore = create<DesignState>((set, get) => ({
             const tileRegions = w.tileRegions?.filter((r) => r.materialId !== id);
             return { ...w, materialId, tileRegions };
           }),
-          items: s.design.items.map((it) =>
-            it.baseMaterialId === id ? { ...it, baseMaterialId: undefined } : it,
-          ),
+          // Limpia ambas referencias a materiales que pueda tener un item.
+          items: s.design.items.map((it) => ({
+            ...it,
+            baseMaterialId: it.baseMaterialId === id ? undefined : it.baseMaterialId,
+            materialId: it.materialId === id ? undefined : it.materialId,
+          })),
         },
       };
     }),

@@ -32,6 +32,7 @@ export function useTextureTarget(): TextureTarget {
   const setFloorMaterial = useDesignStore((s) => s.setFloorMaterial);
   const setWallMaterial = useDesignStore((s) => s.setWallMaterial);
   const setItemBaseMaterial = useDesignStore((s) => s.setItemBaseMaterial);
+  const setItemMaterial = useDesignStore((s) => s.setItemMaterial);
   const updateTileRegion = useDesignStore((s) => s.updateTileRegion);
   const removeTileRegion = useDesignStore((s) => s.removeTileRegion);
 
@@ -81,6 +82,19 @@ export function useTextureTarget(): TextureTarget {
       apply: (id) => setItemBaseMaterial(item.id, id),
       clear: () => setItemBaseMaterial(item.id, null),
     };
+  }
+
+  // Mueble y estantería: la textura (madera) cubre el cuerpo/frentes.
+  if (item) {
+    const kind = kindOf(item.modelRef);
+    if (kind === "cabinet" || kind === "shelf") {
+      return {
+        label: kind === "cabinet" ? "mueble" : "estantería",
+        hasTile: item.materialId != null,
+        apply: (id) => setItemMaterial(item.id, id),
+        clear: () => setItemMaterial(item.id, null),
+      };
+    }
   }
 
   return NONE;

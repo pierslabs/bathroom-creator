@@ -6,9 +6,10 @@
  * Cada pared es su propio componente para poder cargar su textura de azulejos
  * y calcular el repeat según su largo y alto reales.
  *
- * Transparencia: 100% manual y predecible. Una pared se ve transparente solo
- * si la marcaste (seg.transparent). Sin desvanecido automático por cámara, que
- * peleaba con el control manual.
+ * Transparencia: 100% manual y predecible. Si marcás una pared como
+ * transparente (seg.transparent), se OCULTA por completo para despejar el
+ * interior — no se desvanece a vidrio, desaparece (incluye marcos y zonas).
+ * Sin fade automático por cámara, que peleaba con el control manual.
  */
 import { useMemo } from "react";
 import * as THREE from "three";
@@ -30,7 +31,6 @@ import { ACCENT } from "./theme";
 
 const FRAME_COLOR = "#f3efe6";
 const FRAME_T = 0.06; // ancho visible del marco (jamba/dintel), en metros
-const FADE_OPACITY = 0.15;
 
 /**
  * Marco del hueco: jambas (lados) + dintel (arriba) + alféizar (abajo, solo
@@ -44,7 +44,6 @@ function Frames({
   ux,
   uz,
   angleY,
-  fade,
 }: {
   seg: WallSegment;
   ax: number;
@@ -52,7 +51,6 @@ function Frames({
   ux: number;
   uz: number;
   angleY: number;
-  fade: boolean;
 }) {
   const depth = seg.thickness + 0.04; // sobresale un poco a cada cara
   return (
@@ -89,12 +87,7 @@ function Frames({
             castShadow
           >
             <boxGeometry args={[b.len, b.ht, depth]} />
-            <meshStandardMaterial
-              color={FRAME_COLOR}
-              transparent={fade}
-              opacity={fade ? FADE_OPACITY : 1}
-              depthWrite={!fade}
-            />
+            <meshStandardMaterial color={FRAME_COLOR} />
           </mesh>
         ));
       })}
@@ -189,6 +182,10 @@ function Wall({
     [seg],
   );
 
+  // Pared transparente = oculta por completo (geometría, marcos y zonas), para
+  // despejar el interior. Se reactiva desde el panel quitando "transparente".
+  if (fade) return null;
+
   return (
     // Grupo clickeable: elegir la pared directamente en el 3D (no solo en el plano).
     <group
@@ -205,7 +202,6 @@ function Wall({
           ux={ux}
           uz={uz}
           angleY={angleY}
-          fade={fade}
         />
       )}
       {geoms.map((geom, i) => {
@@ -217,23 +213,15 @@ function Wall({
                 src={material.src}
                 repeatX={part.length / material.tileWidth}
                 repeatY={part.height / material.tileHeight}
-                highlight={wallHi && !fade}
+                highlight={wallHi}
                 doubleSide
-                transparent={fade}
-                opacity={fade ? FADE_OPACITY : 1}
               />
             ) : (
               <meshStandardMaterial
-                // key fuerza recrear el material al cambiar transparencia
-                // (Three no recompila el blending al togglear `transparent`).
-                key={fade ? "fade" : "solid"}
-                color={wallHi && !fade ? "#d8c4f0" : "#e8e4dc"}
-                emissive={wallHi && !fade ? ACCENT : "#000000"}
-                emissiveIntensity={wallHi && !fade ? 0.25 : 0}
+                color={wallHi ? "#d8c4f0" : "#e8e4dc"}
+                emissive={wallHi ? ACCENT : "#000000"}
+                emissiveIntensity={wallHi ? 0.25 : 0}
                 side={THREE.DoubleSide}
-                transparent={fade}
-                opacity={fade ? FADE_OPACITY : 1}
-                depthWrite={!fade}
               />
             )}
           </mesh>

@@ -14,6 +14,7 @@ export type ItemKind =
   | "shower"
   | "shower_tray"
   | "cabinet"
+  | "shelf"
   | "mirror";
 
 export interface CatalogEntry {
@@ -55,9 +56,18 @@ export const CATALOG: CatalogEntry[] = [
     natural: { width: 0.9, height: 0.08, depth: 0.9 },
   },
   {
+    // Mueble de lavabo: patas + 3 cajones + encimera/lavabo integrado.
+    // Alto = legHeight 0.08 + bodyHeight 0.75 + topHeight 0.05 (ver cabinet.ts).
     modelRef: "cabinet",
     label: "Mueble",
     kind: "cabinet",
+    natural: { width: 0.8, height: 0.88, depth: 0.46 },
+  },
+  {
+    // Estantería / mueble auxiliar: carcasa hueca con baldas (ver shelf.ts).
+    modelRef: "shelf",
+    label: "Estantería",
+    kind: "shelf",
     natural: { width: 0.8, height: 0.9, depth: 0.4 },
   },
   {

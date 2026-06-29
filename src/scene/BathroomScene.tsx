@@ -29,15 +29,15 @@ export function BathroomScene() {
       // Click en el vacío (no sobre un item) -> deselecciona.
       onPointerMissed={() => selectItem(null)}
     >
-      <color attach="background" args={["#1a1a1d"]} />
+      <color attach="background" args={["#000000"]} />
 
       {/* Luz pareja para que la textura muestre su color real, + una
           direccional suave que da sombras sin oscurecer de más. */}
-      <ambientLight intensity={0.8} />
-      <hemisphereLight args={["#ffffff", "#c8c0b0", 0.4]} />
+      <ambientLight intensity={1.0} />
+      <hemisphereLight args={["#ffffff", "#c8c0b0", 0.6]} />
       <directionalLight
         position={[6, 10, 4]}
-        intensity={0.5}
+        intensity={0.7}
         castShadow
         shadow-mapSize={[1024, 1024]}
       />

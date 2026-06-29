@@ -30,6 +30,7 @@ export function CatalogPanel() {
   const setItemBaseHeight = useDesignStore((s) => s.setItemBaseHeight);
   const setItemDrain = useDesignStore((s) => s.setItemDrain);
   const setItemMirrorShape = useDesignStore((s) => s.setItemMirrorShape);
+  const setItemDoors = useDesignStore((s) => s.setItemDoors);
   const selectedItemId = useDesignStore((s) => s.selectedItemId);
   const selectItem = useDesignStore((s) => s.selectItem);
 
@@ -37,6 +38,7 @@ export function CatalogPanel() {
   const isShower = selected ? kindOf(selected.modelRef) === "shower" : false;
   const isTray = selected ? kindOf(selected.modelRef) === "shower_tray" : false;
   const isMirror = selected ? kindOf(selected.modelRef) === "mirror" : false;
+  const isShelf = selected ? kindOf(selected.modelRef) === "shelf" : false;
   const DRAINS = [
     { value: "center", label: "Centro" },
     { value: "back", label: "Borde" },
@@ -153,6 +155,16 @@ export function CatalogPanel() {
                 ))}
               </div>
             </div>
+          )}
+
+          {isShelf && (
+            <button
+              type="button"
+              className={`plan-transparent ${selected.doors ? "is-on" : ""}`}
+              onClick={() => setItemDoors(selected.id, !selected.doors)}
+            >
+              {selected.doors ? "✓ Con puertas" : "Agregar puertas"}
+            </button>
           )}
 
           {isTray && (

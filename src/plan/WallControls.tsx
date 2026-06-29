@@ -11,6 +11,7 @@ export function WallControls() {
   const design = useDesignStore((s) => s.design);
   const selectedWall = useDesignStore((s) => s.selectedWall);
   const setWallHeight = useDesignStore((s) => s.setWallHeight);
+  const setWallThickness = useDesignStore((s) => s.setWallThickness);
   const setWallTransparent = useDesignStore((s) => s.setWallTransparent);
   const addOpening = useDesignStore((s) => s.addOpening);
   const updateOpening = useDesignStore((s) => s.updateOpening);
@@ -51,6 +52,20 @@ export function WallControls() {
           step={0.05}
           value={wall.height}
           onChange={(e) => setWallHeight(selectedWall, Number(e.target.value))}
+        />
+      </label>
+
+      <label>
+        Grosor del tabique {(wall.thickness * 100).toFixed(0)}cm
+        <input
+          type="range"
+          min={0.04}
+          max={0.3}
+          step={0.01}
+          value={wall.thickness}
+          onChange={(e) =>
+            setWallThickness(selectedWall, Number(e.target.value))
+          }
         />
       </label>
 
